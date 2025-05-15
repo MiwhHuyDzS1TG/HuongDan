@@ -3,6 +3,10 @@ from discord.ext import commands
 import asyncio
 import hashlib
 import os
+from dotenv import load_dotenv
+
+# Load biến môi trường từ .env
+load_dotenv()
 
 # --- Cấu hình Bot ---
 GUILD_ID = 1370793069066190938
@@ -201,8 +205,13 @@ async def setup_cogs():
 # Khởi chạy bot (Railway không cần keep_alive)
 # ====================
 async def main():
+    token = os.getenv("DISCORD_TOKEN")
+    if not token:
+        print("Error: DISCORD_TOKEN không được đặt trong file .env hoặc biến môi trường!")
+        exit(1)
+
     await setup_cogs()
-    await bot.start("MTM3MjQ0OTQ1NjY1NzY2NjEwOA.GUjgNq.hSK219PDr8A2RDQ7HC2BD9gmzy5DSxirBRR3LM")
+    await bot.start(token)
 
 
 if __name__ == "__main__":
