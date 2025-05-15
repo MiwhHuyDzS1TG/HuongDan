@@ -1,9 +1,8 @@
 import discord
 from discord.ext import commands
 import asyncio
-from flask import Flask
-from threading import Thread
 import hashlib
+import os
 
 # --- Cấu hình Bot ---
 GUILD_ID = 1370793069066190938
@@ -15,12 +14,11 @@ intents.dm_messages = True
 intents.guilds = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
-
-# ====================
-# Phần ConfirmButton và xử lý main bot (ghép từ main.py)
-# ====================
 pending_messages = {}
 
+# ====================
+# ConfirmButton xử lý xác nhận
+# ====================
 class ConfirmButton(discord.ui.View):
     def __init__(self, user_id):
         super().__init__(timeout=None)
@@ -38,11 +36,11 @@ class ConfirmButton(discord.ui.View):
                 await interaction.response.send_message("❌ Không tìm thấy channel admin!", ephemeral=True)
                 return
 
-            await channel.send(f"<@{self.user_id}> #🟢Admin đã duyệt yêu cầu của bạn")
+            await channel.send(f"<@{self.user_id}> đã duyệt")
 
             try:
                 user = await bot.fetch_user(self.user_id)
-                await user.send("# đã hoàn thành")
+                await user.send(f"<@{self.user_id}> 🟢Admin đã duyệt yêu cầu của bạn")
             except Exception as e:
                 print(f"Lỗi gửi DM cho user {self.user_id}: {e}")
 
@@ -56,6 +54,9 @@ class ConfirmButton(discord.ui.View):
         else:
             await interaction.response.send_message("❌ Bạn không có quyền xác nhận!", ephemeral=True)
 
+# ====================
+# Sự kiện khởi động bot
+# ====================
 @bot.event
 async def on_ready():
     print(f"✅ Bot đã sẵn sàng: {bot.user}")
@@ -67,6 +68,9 @@ async def on_ready():
     except Exception as e:
         print(f"Lỗi khi sync slash command: {e}")
 
+# ====================
+# Xử lý tin nhắn DM
+# ====================
 @bot.event
 async def on_message(message):
     if message.author.bot:
@@ -132,7 +136,6 @@ async def countdown_send_dm(user_id: int, total_seconds: int = 10):
                 pass
 
         await asyncio.sleep(1)
-
         await send_pending(user_id)
 
     except asyncio.CancelledError:
@@ -150,22 +153,13 @@ async def send_pending(user_id: int):
         return
 
     guild = bot.get_guild(GUILD_ID)
-    if not guild:
-        print("❌ Bot không ở trong server đích khi gửi message tổng hợp.")
-        return
-
     channel = guild.get_channel(CHANNEL_ID)
-    if not channel:
-        print("❌ Không tìm thấy channel đích khi gửi message tổng hợp.")
-        return
-
     user = await bot.fetch_user(user_id)
 
     texts = "\n".join(data["texts"]) if data["texts"] else "[Không có nội dung]"
     files = data["files"]
 
     content = f"📩 Tin nhắn mới từ **{user}** (`{user_id}`):\n{texts}"
-
     view = ConfirmButton(user_id)
 
     try:
@@ -177,7 +171,7 @@ async def send_pending(user_id: int):
     pending_messages.pop(user_id, None)
 
 # ====================
-# Phần cog UUIDCommands (ghép từ uid.py)
+# Slash command UUID
 # ====================
 class UUIDCommands(commands.Cog):
     def __init__(self, bot):
@@ -193,40 +187,23 @@ class UUIDCommands(commands.Cog):
         input_bytes = ("OfflinePlayer:" + username).encode("utf-8")
         md5_hash = hashlib.md5(input_bytes).digest()
         b = bytearray(md5_hash)
-        b[6] = (b[6] & 0x0f) | 0x30  # version 3
-        b[8] = (b[8] & 0x3f) | 0x80  # variant IETF
+        b[6] = (b[6] & 0x0f) | 0x30
+        b[8] = (b[8] & 0x3f) | 0x80
 
         hex_str = b.hex()
         offline_uuid = f"{hex_str[0:8]}-{hex_str[8:12]}-{hex_str[12:16]}-{hex_str[16:20]}-{hex_str[20:32]}"
-
         await interaction.response.send_message(f"Offline UUID của **{username}** là:\n`{offline_uuid}`")
 
 async def setup_cogs():
     await bot.add_cog(UUIDCommands(bot))
 
 # ====================
-# Phần web server nhỏ giữ bot chạy 24/7
+# Khởi chạy bot (Railway không cần keep_alive)
 # ====================
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Bot is alive!"
-
-def run_web():
-    app.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    t = Thread(target=run_web)
-    t.start()
-
-# ====================
-# Main chạy bot
-# ====================
-keep_alive()  # start web server
-
 async def main():
     await setup_cogs()
-    await bot.start("MTM3MjQ0OTQ1NjY1NzY2NjEwOA.GK0hK5.IbFwf8JCLGAPVisnxDMfl0nqNhcZUcLQ5-LaZU")
+    await bot.start("MTM3MjQ0OTQ1NjY1NzY2NjEwOA.GUjgNq.hSK219PDr8A2RDQ7HC2BD9gmzy5DSxirBRR3LM")
 
-asyncio.run(main())
+
+if __name__ == "__main__":
+    asyncio.run(main())
